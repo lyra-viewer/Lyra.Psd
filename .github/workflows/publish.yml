@@ -1,0 +1,24 @@
+name: Publish NuGet
+
+"on":
+  push:
+    tags: ["v*"]
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 9.x
+
+      - name: Build
+        run: dotnet build Lyra.Psd/Lyra.Psd.csproj -c Release
+
+      - name: Pack
+        run: dotnet pack Lyra.Psd/Lyra.Psd.csproj -c Release --no-build -o ./nupkg
+
+      - name: Push
+        run: dotnet nuget push ./nupkg/*.nupkg --api-key ${{ secrets.NUGET_API_KEY }} --source https://api.nuget.org/v3/index.json
