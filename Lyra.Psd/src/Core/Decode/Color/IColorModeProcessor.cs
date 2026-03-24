@@ -1,3 +1,4 @@
+using Lyra.Psd.Core.Decode.Composite;
 using Lyra.Psd.Core.Decode.Pixel;
 using Lyra.Psd.Core.SectionData;
 

@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using Lyra.Psd.Core.Decode.ColorCalibration.Cmyk;
 using Lyra.Psd.Core.Decode.ColorCalibration.Rgb;
+using Lyra.Psd.Core.Decode.Composite;
 
 namespace Lyra.Psd.Core.Decode.Pixel;
 

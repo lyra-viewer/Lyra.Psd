@@ -2,7 +2,7 @@
 
     <PropertyGroup>
         <PackageId>Lyra.Psd</PackageId>
-        <Version>0.1.1</Version>
+        <Version>0.1.2</Version>
         <Authors>Nineveh</Authors>
         <Description>PSD/PSB decoder for Lyra Viewer</Description>
         <RepositoryUrl>https://github.com/lyra-viewer/Lyra.Psd</RepositoryUrl>

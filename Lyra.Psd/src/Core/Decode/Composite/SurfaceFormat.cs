@@ -1,4 +1,4 @@
-namespace Lyra.Psd.Core.Decode.Pixel;
+namespace Lyra.Psd.Core.Decode.Composite;
 
 public readonly record struct SurfaceFormat(PixelFormat PixelFormat, AlphaType AlphaType)
 {

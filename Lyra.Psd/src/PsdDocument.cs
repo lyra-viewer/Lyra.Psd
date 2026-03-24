@@ -1,5 +1,5 @@
 using Lyra.Psd.Core.Decode.Composite;
-using Lyra.Psd.Core.Decode.Pixel;
+using Lyra.Psd.Core.Decode.Layers;
 using Lyra.Psd.Core.Readers;
 using Lyra.Psd.Core.SectionData;
 using Lyra.Psd.Core.SectionReaders;
@@ -59,6 +59,16 @@ public sealed class PsdDocument
         var imageData = ImageDataReader.Read(reader);
 
         return new PsdDocument(header, colorMode, resources, layerAndMaskInformation, imageData, new PsdMetadata());
+    }
+
+    public LayerRecord[] DecodeLayerRecords(Stream stream)
+    {
+        ArgumentNullException.ThrowIfNull(stream);
+
+        if (stream.CanSeek)
+            stream.Position = ImageData.PayloadOffset;
+
+        return PsdLayerDecoder.DecodeLayerRecords(this, stream);
     }
 
     /// <summary>

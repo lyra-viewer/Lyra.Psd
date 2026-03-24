@@ -1,5 +1,5 @@
 using Lyra.Psd.Core.Common;
-using Lyra.Psd.Core.Decode.Pixel;
+using Lyra.Psd.Core.Decode.Composite;
 
 namespace Lyra.Psd.Core.Decode.Color;
 

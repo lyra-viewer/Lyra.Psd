@@ -2,6 +2,7 @@ using System.Buffers;
 using Lyra.Psd.Core.Common;
 using Lyra.Psd.Core.Decode.ColorCalibration;
 using Lyra.Psd.Core.Decode.ColorCalibration.Rgb;
+using Lyra.Psd.Core.Decode.Composite;
 using Lyra.Psd.Core.Decode.Pixel;
 using Lyra.Psd.Core.SectionData;
 using Wacton.Unicolour;
