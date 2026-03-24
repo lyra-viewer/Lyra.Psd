@@ -1,8 +1,8 @@
 using System.Buffers.Binary;
 using System.Text;
-using Lyra.Imaging.Psd.Core.Common;
+using Lyra.Psd.Core.Common;
 
-namespace Lyra.Imaging.Psd.Core.Readers;
+namespace Lyra.Psd.Core.Readers;
 
 // ============================================================================
 //  PERFORMANCE CRITICAL – PSD BIG-ENDIAN BINARY READER

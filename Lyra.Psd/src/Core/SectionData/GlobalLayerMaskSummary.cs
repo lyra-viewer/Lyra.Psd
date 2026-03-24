@@ -1,4 +1,4 @@
-namespace Lyra.Imaging.Psd.Core.SectionData;
+namespace Lyra.Psd.Core.SectionData;
 
 public readonly record struct GlobalLayerMaskSummary(
     long PayloadOffset,

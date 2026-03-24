@@ -1,6 +1,6 @@
-using Lyra.Imaging.Psd.Core.Common;
+using Lyra.Psd.Core.Common;
 
-namespace Lyra.Imaging.Psd.Core.Decode.ColorCalibration.Rgb;
+namespace Lyra.Psd.Core.Decode.ColorCalibration.Rgb;
 
 public sealed record RgbCalibrationRequest
 (

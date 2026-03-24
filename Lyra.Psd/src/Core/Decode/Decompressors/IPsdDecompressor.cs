@@ -1,9 +1,9 @@
-using Lyra.Imaging.Psd.Core.Decode.Pixel;
-using Lyra.Imaging.Psd.Core.Decode.PlaneRowConsumer;
-using Lyra.Imaging.Psd.Core.Readers;
-using Lyra.Imaging.Psd.Core.SectionData;
+using Lyra.Psd.Core.Decode.Pixel;
+using Lyra.Psd.Core.Decode.PlaneRowConsumer;
+using Lyra.Psd.Core.Readers;
+using Lyra.Psd.Core.SectionData;
 
-namespace Lyra.Imaging.Psd.Core.Decode.Decompressors;
+namespace Lyra.Psd.Core.Decode.Decompressors;
 
 public interface IPsdDecompressor
 {

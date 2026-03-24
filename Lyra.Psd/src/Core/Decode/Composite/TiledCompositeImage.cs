@@ -1,6 +1,6 @@
-using Lyra.Imaging.Psd.Core.Decode.Pixel;
+using Lyra.Psd.Core.Decode.Pixel;
 
-namespace Lyra.Imaging.Psd.Core.Decode.Composite;
+namespace Lyra.Psd.Core.Decode.Composite;
 
 public sealed class TiledCompositeImage : IDisposable
 {

@@ -1,7 +1,7 @@
-using Lyra.Imaging.Psd.Core.Readers;
-using Lyra.Imaging.Psd.Core.SectionData;
+using Lyra.Psd.Core.Readers;
+using Lyra.Psd.Core.SectionData;
 
-namespace Lyra.Imaging.Psd.Core.SectionReaders;
+namespace Lyra.Psd.Core.SectionReaders;
 
 // Only indexed color and duotone have color mode data.
 // Indexed: 768 bytes palette (R[256], G[256], B[256])

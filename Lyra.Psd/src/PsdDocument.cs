@@ -1,10 +1,10 @@
-using Lyra.Imaging.Psd.Core.Decode.Composite;
-using Lyra.Imaging.Psd.Core.Decode.Pixel;
-using Lyra.Imaging.Psd.Core.Readers;
-using Lyra.Imaging.Psd.Core.SectionData;
-using Lyra.Imaging.Psd.Core.SectionReaders;
+using Lyra.Psd.Core.Decode.Composite;
+using Lyra.Psd.Core.Decode.Pixel;
+using Lyra.Psd.Core.Readers;
+using Lyra.Psd.Core.SectionData;
+using Lyra.Psd.Core.SectionReaders;
 
-namespace Lyra.Imaging.Psd;
+namespace Lyra.Psd;
 
 public sealed class PsdDocument
 {

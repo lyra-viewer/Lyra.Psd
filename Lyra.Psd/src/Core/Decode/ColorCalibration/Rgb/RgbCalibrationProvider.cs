@@ -2,7 +2,7 @@ using System.Collections.Concurrent;
 using Wacton.Unicolour;
 using Wacton.Unicolour.Icc;
 
-namespace Lyra.Imaging.Psd.Core.Decode.ColorCalibration.Rgb;
+namespace Lyra.Psd.Core.Decode.ColorCalibration.Rgb;
 
 public sealed class RgbCalibrationProvider
 {

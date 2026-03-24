@@ -1,4 +1,4 @@
-namespace Lyra.Imaging.Psd.Core.Decode.ColorCalibration.Cmyk;
+namespace Lyra.Psd.Core.Decode.ColorCalibration.Cmyk;
 
 public sealed class CmykGridLut
 {

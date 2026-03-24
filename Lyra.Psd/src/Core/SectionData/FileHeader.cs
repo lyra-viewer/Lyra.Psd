@@ -1,6 +1,6 @@
-using Lyra.Imaging.Psd.Core.Common;
+using Lyra.Psd.Core.Common;
 
-namespace Lyra.Imaging.Psd.Core.SectionData;
+namespace Lyra.Psd.Core.SectionData;
 
 public readonly record struct FileHeader(
     ushort Version,

@@ -1,7 +1,7 @@
 using Wacton.Unicolour;
 using Wacton.Unicolour.Icc;
 
-namespace Lyra.Imaging.Psd.Core.Decode.ColorCalibration;
+namespace Lyra.Psd.Core.Decode.ColorCalibration;
 
 /// <summary>
 /// Helper used during ICC calibration sampling to query the "oracle"

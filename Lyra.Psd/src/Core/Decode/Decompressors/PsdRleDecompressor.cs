@@ -1,11 +1,11 @@
 using System.Buffers;
-using Lyra.Imaging.Psd.Core.Common;
-using Lyra.Imaging.Psd.Core.Decode.Pixel;
-using Lyra.Imaging.Psd.Core.Decode.PlaneRowConsumer;
-using Lyra.Imaging.Psd.Core.Readers;
-using Lyra.Imaging.Psd.Core.SectionData;
+using Lyra.Psd.Core.Common;
+using Lyra.Psd.Core.Decode.Pixel;
+using Lyra.Psd.Core.Decode.PlaneRowConsumer;
+using Lyra.Psd.Core.Readers;
+using Lyra.Psd.Core.SectionData;
 
-namespace Lyra.Imaging.Psd.Core.Decode.Decompressors;
+namespace Lyra.Psd.Core.Decode.Decompressors;
 
 internal sealed class PsdRleDecompressor : PsdDecompressorBase
 {

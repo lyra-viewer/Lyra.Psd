@@ -1,15 +1,15 @@
 using System.Buffers;
 using System.Runtime.CompilerServices;
-using Lyra.Imaging.Psd.Core.Common;
-using Lyra.Imaging.Psd.Core.Decode.ColorCalibration;
-using Lyra.Imaging.Psd.Core.Decode.ColorCalibration.Cmyk;
-using Lyra.Imaging.Psd.Core.Decode.ColorCalibration.Rgb;
-using Lyra.Imaging.Psd.Core.Decode.Pixel;
-using Lyra.Imaging.Psd.Core.SectionData;
+using Lyra.Psd.Core.Common;
+using Lyra.Psd.Core.Decode.ColorCalibration;
+using Lyra.Psd.Core.Decode.ColorCalibration.Cmyk;
+using Lyra.Psd.Core.Decode.ColorCalibration.Rgb;
+using Lyra.Psd.Core.Decode.Pixel;
+using Lyra.Psd.Core.SectionData;
 using Wacton.Unicolour;
 using Wacton.Unicolour.Icc;
 
-namespace Lyra.Imaging.Psd.Core.Decode.Color.Processors;
+namespace Lyra.Psd.Core.Decode.Color.Processors;
 
 public sealed class CmykProcessor : IColorModeProcessor
 {

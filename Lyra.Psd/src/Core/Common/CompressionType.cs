@@ -1,4 +1,4 @@
-namespace Lyra.Imaging.Psd.Core.Common;
+namespace Lyra.Psd.Core.Common;
 
 public enum CompressionType
 {

@@ -1,6 +1,6 @@
-using Lyra.Imaging.Psd.Core.Readers;
+using Lyra.Psd.Core.Readers;
 
-namespace Lyra.Imaging.Psd.Core.SectionData;
+namespace Lyra.Psd.Core.SectionData;
 
 public static class ImageResourcesHelper
 {

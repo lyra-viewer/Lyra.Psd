@@ -1,4 +1,4 @@
-namespace Lyra.Imaging.Psd.Core.Decode.Pixel;
+namespace Lyra.Psd.Core.Decode.Pixel;
 
 public static class PlaneImageExtensions
 {

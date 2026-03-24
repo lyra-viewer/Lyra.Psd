@@ -1,7 +1,7 @@
-using Lyra.Imaging.Psd.Core.Common;
-using Lyra.Imaging.Psd.Core.Decode.Pixel;
+using Lyra.Psd.Core.Common;
+using Lyra.Psd.Core.Decode.Pixel;
 
-namespace Lyra.Imaging.Psd.Core.Decode.Decompressors;
+namespace Lyra.Psd.Core.Decode.Decompressors;
 
 internal static class CompositePlaneRoles
 {

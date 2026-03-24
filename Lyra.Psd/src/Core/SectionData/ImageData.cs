@@ -1,6 +1,6 @@
-using Lyra.Imaging.Psd.Core.Common;
+using Lyra.Psd.Core.Common;
 
-namespace Lyra.Imaging.Psd.Core.SectionData;
+namespace Lyra.Psd.Core.SectionData;
 
 public readonly record struct ImageData(
     long PayloadOffset, // Points to the first byte AFTER the 2-byte compression field.

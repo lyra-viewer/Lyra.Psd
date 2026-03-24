@@ -1,4 +1,4 @@
-namespace Lyra.Imaging.Psd.Core.Decode.ColorCalibration.Rgb;
+namespace Lyra.Psd.Core.Decode.ColorCalibration.Rgb;
 
 public static class RgbCalibrationDefaults
 {

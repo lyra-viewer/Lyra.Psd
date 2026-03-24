@@ -1,9 +1,9 @@
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
-using Lyra.Imaging.Psd.Core.Decode.ColorCalibration.Cmyk;
-using Lyra.Imaging.Psd.Core.Decode.ColorCalibration.Rgb;
+using Lyra.Psd.Core.Decode.ColorCalibration.Cmyk;
+using Lyra.Psd.Core.Decode.ColorCalibration.Rgb;
 
-namespace Lyra.Imaging.Psd.Core.Decode.Pixel;
+namespace Lyra.Psd.Core.Decode.Pixel;
 
 // ============================================================================
 //  PERFORMANCE CRITICAL – PIXEL ROW WRITER

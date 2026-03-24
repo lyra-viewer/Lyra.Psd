@@ -1,6 +1,6 @@
 using System.Text;
 
-namespace Lyra.Imaging.Psd.Core.Common;
+namespace Lyra.Psd.Core.Common;
 
 internal static class FourCC
 {

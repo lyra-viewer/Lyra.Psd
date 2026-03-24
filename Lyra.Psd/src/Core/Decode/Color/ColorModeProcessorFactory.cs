@@ -1,7 +1,7 @@
-using Lyra.Imaging.Psd.Core.Common;
-using Lyra.Imaging.Psd.Core.Decode.Color.Processors;
+using Lyra.Psd.Core.Common;
+using Lyra.Psd.Core.Decode.Color.Processors;
 
-namespace Lyra.Imaging.Psd.Core.Decode.Color;
+namespace Lyra.Psd.Core.Decode.Color;
 
 public static class ColorModeProcessorFactory
 {

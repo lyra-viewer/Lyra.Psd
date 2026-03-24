@@ -1,4 +1,4 @@
-namespace Lyra.Imaging.Psd;
+namespace Lyra.Psd;
 
 public class PsdMetadata
 {

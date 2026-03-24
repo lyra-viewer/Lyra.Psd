@@ -1,7 +1,7 @@
 using System.Buffers.Binary;
 using System.Runtime.CompilerServices;
 
-namespace Lyra.Imaging.Psd.Core.Decode.Color;
+namespace Lyra.Psd.Core.Decode.Color;
 
 // ============================================================================
 //  PERFORMANCE CRITICAL – PSD SAMPLE CONVERSION

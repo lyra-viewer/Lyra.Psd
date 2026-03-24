@@ -1,6 +1,6 @@
 using System.Buffers;
 
-namespace Lyra.Imaging.Psd.Core.Decode.Pixel;
+namespace Lyra.Psd.Core.Decode.Pixel;
 
 /// <summary>
 /// 4-bytes-per-pixel RGBA-family surface (row-major, optional padding via Stride).

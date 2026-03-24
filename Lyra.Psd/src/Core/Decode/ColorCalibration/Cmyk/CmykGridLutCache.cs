@@ -3,7 +3,7 @@ using System.Security.Cryptography;
 using System.Text;
 using Wacton.Unicolour.Icc;
 
-namespace Lyra.Imaging.Psd.Core.Decode.ColorCalibration.Cmyk;
+namespace Lyra.Psd.Core.Decode.ColorCalibration.Cmyk;
 
 /// <summary>
 /// Thread-safe cache for CMYK grid LUTs, keyed by ICC profile identity + transform parameters.
