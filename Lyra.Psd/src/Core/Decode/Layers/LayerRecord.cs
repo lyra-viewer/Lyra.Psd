@@ -5,7 +5,11 @@ public readonly record struct LayerRecord(
     int Left,
     int Bottom,
     int Right,
-    string Name
+    string Name,
+    LayerSectionType SectionType,
+    bool Visible,
+    byte Opacity,
+    uint BlendModeKey
 )
 {
     public int Width => Right - Left;

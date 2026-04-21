@@ -12,7 +12,7 @@ namespace Lyra.Psd.Core.Readers;
 //
 //  Hot Path Characteristics:
 //    - Called repeatedly during layer, resource, and image data parsing.
-//    - Must not allocate.
+//    - Must not allocate (except ReadBytes which returns owned arrays).
 //    - Must avoid unnecessary buffer copies.
 //    - Must avoid redundant bounds checks.
 //    - Must keep position tracking lightweight.
@@ -23,12 +23,16 @@ namespace Lyra.Psd.Core.Readers;
 //    - Zero hidden allocations.
 //    - Explicit error reporting on corruption.
 //
+//  Thread Safety:
+//    NOT thread-safe. The shared _scratch8 buffer and sequential stream
+//    position assume single-threaded access.
+//
 //  PERFORMANCE CONTRACT:
 //    This class underpins the entire PSD parser.
 //    Changes must preserve:
 //      - Correct big-endian semantics
 //      - Strict bounds validation
-//      - Zero-allocation behavior
+//      - Zero-allocation behavior (outside ReadBytes)
 //    Any structural changes must be benchmarked and validated
 //    against large PSB files and malformed input samples.
 //
@@ -107,6 +111,12 @@ public sealed class PsdBigEndianReader(Stream stream)
         return BinaryPrimitives.ReadUInt64BigEndian(_scratch8.AsSpan(0, 8));
     }
 
+    public long ReadInt64()
+    {
+        ReadExactly(_scratch8.AsSpan(0, 8));
+        return BinaryPrimitives.ReadInt64BigEndian(_scratch8.AsSpan(0, 8));
+    }
+
     public byte[] ReadBytes(int count)
     {
         ArgumentOutOfRangeException.ThrowIfNegative(count);
@@ -147,6 +157,9 @@ public sealed class PsdBigEndianReader(Stream stream)
         value = 0;
 
         if (!CanSeek)
+            return false;
+
+        if (Position + 4 > Length)
             return false;
 
         var pos = Position;

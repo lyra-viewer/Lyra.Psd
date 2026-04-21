@@ -8,7 +8,8 @@ public static class PsdLayerDecoder
 {
     /// <summary>
     /// Decode layer records from the LayerInfo payload.
-    /// Resolves each layer's name via 'luni' (Unicode) with Pascal string fallback.
+    /// Resolves each layer's name via 'luni' (Unicode) with Pascal string fallback,
+    /// and extracts section-divider type ('lsct'), visibility, opacity, and blend mode.
     /// </summary>
     public static LayerRecord[] DecodeLayerRecords(PsdDocument psdDocument, Stream stream)
     {
@@ -47,8 +48,16 @@ public static class PsdLayerDecoder
             var channelCount = reader.ReadUInt16();
             reader.Skip(channelCount * channelEntrySize);
 
-            // Blend mode signature + key, opacity, clipping, flags, filler
-            reader.Skip(4 + 4 + 4);
+            // 4 (blend sig '8BIM') + 4 (blend key) + 1 (opacity) + 1 (clipping) + 1 (flags) + 1 (filler) = 12 bytes
+            reader.Skip(4); // blend mode signature
+            var blendModeKey = reader.ReadUInt32();
+            var opacity = reader.ReadByte();
+            reader.Skip(1); // clipping
+            var flags = reader.ReadByte();
+            reader.Skip(1); // filler
+
+            // Flags bit 1: 1 = hidden, 0 = visible (inverted per spec).
+            var visible = (flags & 0x02) == 0;
 
             var extraDataLength = reader.ReadUInt32();
             var extraDataEnd = reader.Position + extraDataLength;
@@ -57,33 +66,67 @@ public static class PsdLayerDecoder
             SkipLayerBlendingRanges(reader);
 
             var pascalName = reader.ReadPascalString(padTo: 4);
-            var unicodeName = TryReadUnicodeLayerName(reader, extraDataEnd, isPsb);
+            var (unicodeName, sectionType) = ReadAdditionalFields(reader, extraDataEnd, isPsb);
 
             if (reader.Position != extraDataEnd)
                 reader.Position = extraDataEnd;
 
-            records[i] = new LayerRecord(top, left, bottom, right, unicodeName ?? pascalName);
+            records[i] = new LayerRecord(
+                top, left, bottom, right,
+                unicodeName ?? pascalName,
+                sectionType,
+                visible, opacity, blendModeKey);
         }
 
         return records;
     }
 
-    private static string? TryReadUnicodeLayerName(PsdBigEndianReader reader, long extraDataEnd, bool isPsb)
+    /// <summary>
+    /// Single pass over the per-layer additional information, extracting
+    /// the Unicode name ('luni') and the section divider type ('lsct').
+    /// Missing blocks yield null / Normal respectively.
+    /// </summary>
+    private static (string? UnicodeName, LayerSectionType SectionType) ReadAdditionalFields(
+        PsdBigEndianReader reader, long extraDataEnd, bool isPsb)
     {
         if (reader.Position >= extraDataEnd)
-            return null;
+            return (null, LayerSectionType.Normal);
 
-        var perLayerInfo = AdditionalLayerInformationReader.ReadAll(reader, extraDataEnd, isPsb);
-        foreach (var block in perLayerInfo)
+        var blocks = AdditionalLayerInformationReader.ReadAll(reader, extraDataEnd, isPsb);
+
+        string? unicodeName = null;
+        var sectionType = LayerSectionType.Normal;
+
+        foreach (var block in blocks)
         {
-            if (block.Key != AdditionalLayerInformationKeys.UnicodeLayerName)
-                continue;
-
-            reader.Position = block.PayloadOffset;
-            return reader.ReadUnicodeString();
+            if (block.Key == AdditionalLayerInformationKeys.UnicodeLayerName)
+            {
+                reader.Position = block.PayloadOffset;
+                unicodeName = reader.ReadUnicodeString();
+            }
+            else if (block.Key == AdditionalLayerInformationKeys.SectionDivider)
+            {
+                reader.Position = block.PayloadOffset;
+                sectionType = ReadSectionDividerType(reader, block.PayloadLength);
+            }
         }
 
-        return null;
+        return (unicodeName, sectionType);
+    }
+
+    /// <summary>
+    /// 'lsct' payload layout:
+    ///   4 bytes: type (0..3)
+    ///   [optional, if length >= 12]  4 bytes signature + 4 bytes blend mode key (pass-through etc.)
+    ///   [optional, if length >= 16]  4 bytes subtype (0 = normal, 1 = scene group)
+    /// </summary>
+    private static LayerSectionType ReadSectionDividerType(PsdBigEndianReader reader, long payloadLength)
+    {
+        if (payloadLength < 4)
+            return LayerSectionType.Normal;
+
+        var type = reader.ReadUInt32();
+        return type <= 3 ? (LayerSectionType)type : LayerSectionType.Normal;
     }
 
     private static void SkipLayerMaskData(PsdBigEndianReader reader)
