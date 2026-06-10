@@ -15,7 +15,7 @@ public abstract class PsdDecompressorBase : IPsdDecompressor
     public PlaneImage DecompressPreview(PsdBigEndianReader reader, FileHeader header, int width, int height, CancellationToken ct)
     {
         ArgumentNullException.ThrowIfNull(reader);
-        
+
         ct.ThrowIfCancellationRequested();
 
         ValidateCommonInputs(header);
@@ -44,7 +44,7 @@ public abstract class PsdDecompressorBase : IPsdDecompressor
         ArgumentNullException.ThrowIfNull(consumer);
 
         ct.ThrowIfCancellationRequested();
-        
+
         ValidateCommonInputs(header);
 
         if ((uint)yStart > (uint)header.Height || (uint)yEnd > (uint)header.Height || yStart > yEnd)
@@ -219,7 +219,7 @@ public abstract class PsdDecompressorBase : IPsdDecompressor
         var map = new int[dstWidth];
         for (var x = 0; x < dstWidth; x++)
             map[x] = (int)((long)x * srcWidth / dstWidth);
-        
+
         return map;
     }
 
@@ -228,7 +228,7 @@ public abstract class PsdDecompressorBase : IPsdDecompressor
         var map = new int[dstHeight];
         for (var y = 0; y < dstHeight; y++)
             map[y] = (int)((long)y * srcHeight / dstHeight);
-        
+
         return map;
     }
 
@@ -244,14 +244,14 @@ public abstract class PsdDecompressorBase : IPsdDecompressor
             var src16 = MemoryMarshal.Cast<byte, ushort>(srcRow);
             var dst16 = MemoryMarshal.Cast<byte, ushort>(dstRow);
             for (var xOut = 0; xOut < xMap.Length; xOut++)
-                dst16[xOut] = src16[xMap[xOut] >> 1];
+                dst16[xOut] = src16[xMap[xOut]];
         }
         else if (bpc == 4)
         {
             var src32 = MemoryMarshal.Cast<byte, uint>(srcRow);
             var dst32 = MemoryMarshal.Cast<byte, uint>(dstRow);
             for (var xOut = 0; xOut < xMap.Length; xOut++)
-                dst32[xOut] = src32[xMap[xOut] >> 2];
+                dst32[xOut] = src32[xMap[xOut]];
         }
         else
         {
@@ -280,12 +280,37 @@ public abstract class PsdDecompressorBase : IPsdDecompressor
         var depth = PsdDepthUtil.FromBitsPerChannel(depthBits);
         var bytesPerRow = depth.RowBytes(width);
         var planeSize = checked(bytesPerRow * height);
+        var totalBytes = (long)planeSize * roles.Length;
+        if (totalBytes > int.MaxValue)
+            throw new NotSupportedException(
+                $"Plane allocation of {totalBytes:N0} bytes ({width}x{height}, {roles.Length} planes @ {depthBits}bpc) " +
+                "exceeds the single-surface limit; use the tiled decode path for images this large.");
 
         var planes = new Plane[roles.Length];
         for (var i = 0; i < roles.Length; i++)
             planes[i] = new Plane(roles[i], new byte[planeSize], bytesPerRow);
 
         return planes;
+    }
+
+    /// <summary>
+    /// For uncompressed (RAW) payloads, the declared pixel data has a known exact size.
+    /// Reject early when a crafted header claims more pixels than the stream can possibly hold,
+    /// before any large buffer is allocated.
+    /// </summary>
+    protected static void ValidateRawPayloadFitsStream(PsdBigEndianReader reader, FileHeader header, PsdDepth depth)
+    {
+        if (!reader.CanSeek)
+            return;
+
+        var rowBytes = depth.RowBytes(header.Width);
+        var required = (long)header.NumberOfChannels * header.Height * rowBytes;
+        var remaining = reader.Length - reader.Position;
+
+        if (required > remaining)
+            throw new InvalidDataException(
+                $"Declared RAW image data ({required:N0} bytes) exceeds the {remaining:N0} bytes remaining in the stream; " +
+                "the header dimensions are likely corrupt.");
     }
 
     #endregion

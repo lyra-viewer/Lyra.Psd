@@ -19,13 +19,19 @@ internal sealed class PsdRawDecompressor : PsdDecompressorBase
         => DecompressRaw(reader, header, roles, PsdDepth.Bit32, ct);
 
     protected override PlaneImage Decompress8Preview(PsdBigEndianReader reader, FileHeader header, PlaneRole[] roles, int outWidth, int outHeight, CancellationToken ct)
-        => DecodeScaledPlanesByRows(header.Width, header.Height, outWidth, outHeight, PsdDepth.Bit8, roles, ct, () => reader.ReadExactly);
+        => DecodeRawScaled(reader, header, roles, outWidth, outHeight, PsdDepth.Bit8, ct);
 
     protected override PlaneImage Decompress16Preview(PsdBigEndianReader reader, FileHeader header, PlaneRole[] roles, int outWidth, int outHeight, CancellationToken ct)
-        => DecodeScaledPlanesByRows(header.Width, header.Height, outWidth, outHeight, PsdDepth.Bit16, roles, ct, () => reader.ReadExactly);
+        => DecodeRawScaled(reader, header, roles, outWidth, outHeight, PsdDepth.Bit16, ct);
 
     protected override PlaneImage Decompress32Preview(PsdBigEndianReader reader, FileHeader header, PlaneRole[] roles, int outWidth, int outHeight, CancellationToken ct)
-        => DecodeScaledPlanesByRows(header.Width, header.Height, outWidth, outHeight, PsdDepth.Bit32, roles, ct, () => reader.ReadExactly);
+        => DecodeRawScaled(reader, header, roles, outWidth, outHeight, PsdDepth.Bit32, ct);
+
+    private static PlaneImage DecodeRawScaled(PsdBigEndianReader reader, FileHeader header, PlaneRole[] roles, int outWidth, int outHeight, PsdDepth depth, CancellationToken ct)
+    {
+        ValidateRawPayloadFitsStream(reader, header, depth);
+        return DecodeScaledPlanesByRows(header.Width, header.Height, outWidth, outHeight, depth, roles, ct, () => reader.ReadExactly);
+    }
 
     protected override void Decompress8RowRegion(PsdBigEndianReader reader, FileHeader header, PlaneRole[] roles, int yStart, int yEnd, IPlaneRowConsumer consumer, CancellationToken ct)
         => DecompressRawRowRegion(reader, header, roles, PsdDepth.Bit8, yStart, yEnd, consumer, ct);
@@ -42,6 +48,8 @@ internal sealed class PsdRawDecompressor : PsdDecompressorBase
         var height = header.Height;
 
         var rowBytes = depth.RowBytes(width);
+
+        ValidateRawPayloadFitsStream(reader, header, depth);
 
         var planes = AllocatePlanes(width, height, (int)depth, roles);
         var rentedRow = ArrayPool<byte>.Shared.Rent(rowBytes);
@@ -83,6 +91,8 @@ internal sealed class PsdRawDecompressor : PsdDecompressorBase
         var height = header.Height;
 
         var rowBytes = depth.RowBytes(width);
+
+        ValidateRawPayloadFitsStream(reader, header, depth);
 
         var basePos = reader.BaseStream.Position;
 

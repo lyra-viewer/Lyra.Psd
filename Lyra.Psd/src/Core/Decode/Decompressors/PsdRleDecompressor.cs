@@ -226,6 +226,20 @@ internal sealed class PsdRleDecompressor : PsdDecompressorBase
     {
         var version = header.Version;
         var rowCount = checked(channelCount * height);
+
+        // The row-byte-count table is fixed size (2 bytes/row for PSD, 4 for PSB). It must fit
+        // in the stream before we allocate it — guards against crafted huge dimensions.
+        var lenFieldSize = version == 2 ? 4 : 2;
+        if (reader.CanSeek)
+        {
+            var tableBytes = (long)rowCount * lenFieldSize;
+            var remaining = reader.Length - reader.Position;
+            if (tableBytes > remaining)
+                throw new InvalidDataException(
+                    $"RLE row-length table ({tableBytes:N0} bytes) exceeds the {remaining:N0} bytes remaining in the stream; " +
+                    "the header dimensions are likely corrupt.");
+        }
+
         var rowByteCounts = new int[rowCount];
 
         for (var i = 0; i < rowCount; i++)

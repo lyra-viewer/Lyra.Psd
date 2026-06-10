@@ -43,9 +43,11 @@ internal sealed class PsdZipPredictDecompressor : PsdDecompressorBase
         var zReader = new PsdBigEndianReader(z);
 
         var rentedRow = ArrayPool<byte>.Shared.Rent(rowBytes);
+        var rentedScratch = depth == PsdDepth.Bit32 ? ArrayPool<byte>.Shared.Rent(rowBytes) : null;
         try
         {
             var row = rentedRow.AsSpan(0, rowBytes);
+            var scratch = rentedScratch is null ? Span<byte>.Empty : rentedScratch.AsSpan(0, rowBytes);
 
             for (var p = 0; p < roles.Length; p++)
             {
@@ -55,7 +57,7 @@ internal sealed class PsdZipPredictDecompressor : PsdDecompressorBase
                     ct.ThrowIfCancellationRequested();
 
                     zReader.ReadExactly(row);
-                    UndoPredictor(row, width, depth);
+                    UndoPredictor(row, width, depth, scratch);
 
                     row.CopyTo(plane.Data.AsSpan(y * plane.BytesPerRow, rowBytes));
                 }
@@ -66,6 +68,8 @@ internal sealed class PsdZipPredictDecompressor : PsdDecompressorBase
         finally
         {
             ArrayPool<byte>.Shared.Return(rentedRow);
+            if (rentedScratch is not null)
+                ArrayPool<byte>.Shared.Return(rentedScratch);
         }
     }
 
@@ -74,16 +78,18 @@ internal sealed class PsdZipPredictDecompressor : PsdDecompressorBase
         using var z = new ZLibStream(reader.BaseStream, CompressionMode.Decompress, leaveOpen: true);
         var zReader = new PsdBigEndianReader(z);
 
+        var scratch = depth == PsdDepth.Bit32 ? new byte[depth.RowBytes(header.Width)] : [];
+
         return DecodeScaledPlanesByRows(header.Width, header.Height, outWidth, outHeight, depth, roles, ct, CreatePlaneRowReader);
 
         ReadNextSourceRow CreatePlaneRowReader() => rowBuffer =>
         {
             zReader.ReadExactly(rowBuffer);
-            UndoPredictor(rowBuffer, header.Width, depth);
+            UndoPredictor(rowBuffer, header.Width, depth, scratch);
         };
     }
 
-    private static void UndoPredictor(Span<byte> rowBytes, int widthPixels, PsdDepth depth)
+    private static void UndoPredictor(Span<byte> rowBytes, int widthPixels, PsdDepth depth, Span<byte> scratch)
     {
         switch (depth)
         {
@@ -94,7 +100,7 @@ internal sealed class PsdZipPredictDecompressor : PsdDecompressorBase
                 UndoPredictor16(rowBytes, widthPixels);
                 return;
             case PsdDepth.Bit32:
-                UndoPredictor32(rowBytes, widthPixels);
+                UndoPredictor32(rowBytes, widthPixels, scratch);
                 return;
             default:
                 throw new NotSupportedException($"Predictor undo not supported for depth {depth}.");
@@ -130,26 +136,43 @@ internal sealed class PsdZipPredictDecompressor : PsdDecompressorBase
         }
     }
 
-    private static void UndoPredictor32(Span<byte> rowBytes, int widthPixels)
+    // ------------------------------------------------------------------------
+    //  32-bit float prediction (Adobe PSD == TIFF floating-point predictor 3).
+    //
+    //  The encoder, per row:
+    //  1. Splits each big-endian float into 4 byte-planes and stores them
+    //     planar: [all byte0][all byte1][all byte2][all byte3].
+    //  2. Applies byte-wise horizontal differencing across the whole row.
+    //
+    //  Decoding therefore reverses that order:
+    //  1. Undo the byte-wise differencing across the entire row (stride 1).
+    //  2. De-shuffle the planar bytes back into interleaved big-endian floats.
+    //
+    //  NOTE: this is fundamentally different from the 16-bit case, which is a
+    //  plain per-sample (uint16) horizontal delta with no byte reshuffle.
+    // ------------------------------------------------------------------------
+    private static void UndoPredictor32(Span<byte> rowBytes, int widthPixels, Span<byte> scratch)
     {
-        if (rowBytes.Length < widthPixels * 4)
-            throw new InvalidOperationException($"Predictor32 row length mismatch: got {rowBytes.Length}, expected {widthPixels * 4}.");
+        var needed = widthPixels * 4;
+        if (rowBytes.Length < needed)
+            throw new InvalidOperationException($"Predictor32 row length mismatch: got {rowBytes.Length}, expected {needed}.");
 
-        ref var rowRef = ref MemoryMarshal.GetReference(rowBytes);
-        var prev = BinaryPrimitives.ReadUInt32BigEndian(MemoryMarshal.CreateReadOnlySpan(ref rowRef, 4));
+        if (scratch.Length < needed)
+            throw new InvalidOperationException($"Predictor32 scratch too small: got {scratch.Length}, expected {needed}.");
 
-        for (var x = 1; x < widthPixels; x++)
+        var row = rowBytes[..needed];
+
+        for (var i = 1; i < needed; i++)
+            row[i] = unchecked((byte)(row[i] + row[i - 1]));
+
+        var tmp = scratch[..needed];
+        row.CopyTo(tmp);
+
+        for (var b = 0; b < 4; b++)
         {
-            var off = x * 4;
-            ref var currentRef = ref Unsafe.Add(ref rowRef, off);
-
-            var delta = BinaryPrimitives.ReadUInt32BigEndian(MemoryMarshal.CreateReadOnlySpan(ref currentRef, 4));
-
-            unchecked
-            {
-                prev = delta + prev;
-                BinaryPrimitives.WriteUInt32BigEndian(MemoryMarshal.CreateSpan(ref currentRef, 4), prev);
-            }
+            var planeBase = b * widthPixels;
+            for (var x = 0; x < widthPixels; x++)
+                row[x * 4 + b] = tmp[planeBase + x];
         }
     }
 }
