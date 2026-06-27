@@ -11,8 +11,8 @@ public static class ColorModeProcessorFactory
         ColorMode.Cmyk => new CmykProcessor(),
         ColorMode.Indexed => new IndexedProcessor(),
         ColorMode.Grayscale => new GrayscaleProcessor(),
+        ColorMode.Lab => new LabProcessor(),
         // TODO:
-        // ColorMode.Lab => new LabProcessor(),
         // ColorMode.Duotone => new DuotoneFallbackProcessor(),
         // ColorMode.Multichannel => new MultichannelFallbackProcessor(),
         ColorMode.Bitmap => throw new NotSupportedException("Bitmap (1bpp) is not processed via IColorModeProcessor (PlaneImage-based). Use Bitmap decode path."),

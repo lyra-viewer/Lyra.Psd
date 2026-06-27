@@ -14,6 +14,8 @@ public sealed class PsdDocument
     public LayerAndMaskInformation LayerAndMaskInformation { get; }
     public ImageData ImageData { get; }
 
+    public PsdSectionLayout SectionLayout { get; }
+
     public PsdMetadata PsdMetadata { get; }
 
     private PsdDocument(
@@ -22,6 +24,7 @@ public sealed class PsdDocument
         ImageResources imageResources,
         LayerAndMaskInformation layerAndMaskInformation,
         ImageData imageData,
+        PsdSectionLayout sectionLayout,
         PsdMetadata psdMetadata)
     {
         FileHeader = fileHeader;
@@ -29,6 +32,7 @@ public sealed class PsdDocument
         ImageResources = imageResources;
         LayerAndMaskInformation = layerAndMaskInformation;
         ImageData = imageData;
+        SectionLayout = sectionLayout;
         PsdMetadata = psdMetadata;
     }
 
@@ -52,13 +56,30 @@ public sealed class PsdDocument
 
         var reader = new PsdBigEndianReader(stream);
 
+        var headerStart = reader.Position;
         var header = FileHeaderSectionReader.Read(reader);
-        var colorMode = ColorModeDataSectionReader.Read(reader);
-        var resources = ImageResourcesSectionReader.Read(reader);
-        var layerAndMaskInformation = LayerAndMaskInformationSectionReader.Read(reader, header);
-        var imageData = ImageDataReader.Read(reader);
 
-        return new PsdDocument(header, colorMode, resources, layerAndMaskInformation, imageData, new PsdMetadata());
+        var colorModeStart = reader.Position;
+        var colorMode = ColorModeDataSectionReader.Read(reader);
+
+        var resourcesStart = reader.Position;
+        var resources = ImageResourcesSectionReader.Read(reader);
+
+        var layerMaskStart = reader.Position;
+        var layerAndMaskInformation = LayerAndMaskInformationSectionReader.Read(reader, header);
+
+        var imageDataStart = reader.Position;
+        var imageData = ImageDataReader.Read(reader);
+        
+        var layout = new PsdSectionLayout(
+            FileHeader: new PsdSectionSpan(headerStart, colorModeStart - headerStart),
+            ColorModeData: new PsdSectionSpan(colorModeStart, resourcesStart - colorModeStart),
+            ImageResources: new PsdSectionSpan(resourcesStart, layerMaskStart - resourcesStart),
+            LayerAndMaskInformation: new PsdSectionSpan(layerMaskStart, imageDataStart - layerMaskStart),
+            ImageData: new PsdSectionSpan(imageDataStart, 2 + imageData.PayloadLength)
+        );
+
+        return new PsdDocument(header, colorMode, resources, layerAndMaskInformation, imageData, layout, new PsdMetadata());
     }
 
     public LayerRecord[] DecodeLayerRecords(Stream stream)
