@@ -73,12 +73,13 @@ public sealed class CmykProcessor : IColorModeProcessor
 
         if (ctx.PreferColorManagement)
         {
-            Configuration? config = null;
+            Func<Configuration>? configFactory = null;
             string? fallbackProfilePath = null;
 
             if (ctx.IccProfile is { Length: > 0 })
             {
-                config = new Configuration(iccConfig: new IccConfiguration(ctx.IccProfile, GridIntent));
+                var embeddedIcc = ctx.IccProfile;
+                configFactory = () => new Configuration(iccConfig: new IccConfiguration(embeddedIcc, GridIntent));
                 IccProfileUsed = "Embedded ICC Profile";
             }
             else
@@ -86,12 +87,13 @@ public sealed class CmykProcessor : IColorModeProcessor
                 fallbackProfilePath = SystemCmykProfileLocator.TryGetDefaultCmykIccPath();
                 if (fallbackProfilePath is not null)
                 {
-                    config = new Configuration(iccConfig: new IccConfiguration(fallbackProfilePath, GridIntent));
+                    var profilePath = fallbackProfilePath;
+                    configFactory = () => new Configuration(iccConfig: new IccConfiguration(profilePath, GridIntent));
                     IccProfileUsed = Path.GetFileNameWithoutExtension(fallbackProfilePath);
                 }
             }
 
-            if (config is not null)
+            if (configFactory is not null)
             {
                 cmykGridLut = GridLutCache.GetOrCreate(
                     ctx.IccProfile,
@@ -99,7 +101,7 @@ public sealed class CmykProcessor : IColorModeProcessor
                     GridIntent,
                     GridInvert,
                     GridSize,
-                    () => BuildCmykGridLut(config, GridSize, GridInvert, ct));
+                    () => BuildCmykGridLut(configFactory, GridSize, GridInvert, ct));
 
                 useHeuristicTuning = false;
             }
@@ -485,12 +487,12 @@ public sealed class CmykProcessor : IColorModeProcessor
     //           0.5 = half correction (useful if full BPC crushes shadow detail).
     private const float BlackPointCompensationStrength = .6f;
 
-    private static CmykGridLut BuildCmykGridLut(Configuration config, int gridSize, bool invert, CancellationToken ct)
+    private static CmykGridLut BuildCmykGridLut(Func<Configuration> configFactory, int gridSize, bool invert, CancellationToken ct)
     {
         var totalPoints = checked(gridSize * gridSize * gridSize * gridSize);
         var samples = new byte[checked(totalPoints * 3)];
 
-        // Phase 1: Sample all grid points
+        // Phase 1: Sample all grid points (per-thread Configuration; see configFactory note above)
         Parallel.For(
             fromInclusive: 0,
             toExclusive: totalPoints,
@@ -499,7 +501,8 @@ public sealed class CmykProcessor : IColorModeProcessor
                 CancellationToken = ct,
                 MaxDegreeOfParallelism = Environment.ProcessorCount
             },
-            index =>
+            localInit: configFactory,
+            body: (index, _, config) =>
             {
                 UnflattenIndex(index, gridSize, out var ic, out var im, out var iy, out var ik);
 
@@ -514,13 +517,15 @@ public sealed class CmykProcessor : IColorModeProcessor
                 samples[baseIdx + 0] = (byte)rgb.r;
                 samples[baseIdx + 1] = (byte)rgb.g;
                 samples[baseIdx + 2] = (byte)rgb.b;
-            });
+                return config;
+            },
+            localFinally: _ => { });
 
         // Phase 2: Black point compensation
         if (BlackPointCompensationStrength > 0f)
         {
             ct.ThrowIfCancellationRequested();
-            ApplyBlackPointCompensation(config, invert, samples, BlackPointCompensationStrength);
+            ApplyBlackPointCompensation(configFactory(), invert, samples, BlackPointCompensationStrength);
         }
 
         return new CmykGridLut(gridSize, invert, samples);
@@ -534,10 +539,10 @@ public sealed class CmykProcessor : IColorModeProcessor
     /// </summary>
     private static void ApplyBlackPointCompensation(Configuration config, bool invert, byte[] samples, float strength)
     {
-        byte noInk = 255;
+        const byte noInk = 255;
         var white = IccTransformSampler.OracleIccRgb(config, noInk, noInk, noInk, noInk, invert);
 
-        byte fullInk = 0; // PSD convention: 0 = full ink
+        const byte fullInk = 0; // PSD convention: 0 = full ink
         var kOnlyBlack = IccTransformSampler.OracleIccRgb(config, noInk, noInk, noInk, fullInk, invert);
         var richBlack = IccTransformSampler.OracleIccRgb(config, fullInk, fullInk, fullInk, fullInk, invert);
 

@@ -134,7 +134,8 @@ public static class PsdCompositeDecoder
             OutputFormat: outputFormat,
             IndexedPaletteRgb: null,
             IccProfile: iccProfile,
-            PreferColorManagement: true
+            PreferColorManagement: true,
+            Calibration: psdDocument.Calibration
         );
 
         var processor = ColorModeProcessorFactory.GetProcessor(header.ColorMode);
@@ -179,7 +180,8 @@ public static class PsdCompositeDecoder
             OutputFormat: outputFormat,
             IndexedPaletteRgb: null,
             IccProfile: iccProfile,
-            PreferColorManagement: true
+            PreferColorManagement: true,
+            Calibration: psdDocument.Calibration
         );
 
         var processor = ColorModeProcessorFactory.GetProcessor(header.ColorMode);
@@ -224,7 +226,8 @@ public static class PsdCompositeDecoder
             OutputFormat: outputFormat,
             IndexedPaletteRgb: null,
             IccProfile: iccProfile,
-            PreferColorManagement: true
+            PreferColorManagement: true,
+            Calibration: psdDocument.Calibration
         );
 
         var processor = ColorModeProcessorFactory.GetProcessor(header.ColorMode);
@@ -285,7 +288,8 @@ public static class PsdCompositeDecoder
             OutputFormat: outputFormat,
             IndexedPaletteRgb: null,
             IccProfile: iccProfile,
-            PreferColorManagement: true
+            PreferColorManagement: true,
+            Calibration: psdDocument.Calibration
         );
 
         var processor = ColorModeProcessorFactory.GetProcessor(header.ColorMode);

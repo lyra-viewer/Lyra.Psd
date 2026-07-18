@@ -20,7 +20,7 @@ namespace Lyra.Psd.Core.Decode.ColorCalibration.Lab;
 /// </summary>
 internal sealed class LabToRgbConverter
 {
-    private static readonly Configuration LabToSrgb = new(RgbConfiguration.StandardRgb, XyzConfiguration.D50);
+    private readonly Configuration _labToSrgb = new(RgbConfiguration.StandardRgb, XyzConfiguration.D50);
 
     // Direct-mapped cache: key = 24-bit (L,a,b); value packs the 24-bit RGB plus an "occupied" bit.
     private const int CacheBits = 16;
@@ -48,7 +48,7 @@ internal sealed class LabToRgbConverter
         var aStar = a8 - 128.0;
         var bStar = b8 - 128.0;
 
-        var colour = new Unicolour(LabToSrgb, ColourSpace.Lab, lStar, aStar, bStar);
+        var colour = new Unicolour(_labToSrgb, ColourSpace.Lab, lStar, aStar, bStar);
         var bytes = colour.Rgb.Byte255;
 
         r = ClampByte(bytes.R);

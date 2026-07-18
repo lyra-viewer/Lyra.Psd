@@ -13,7 +13,9 @@ public sealed class RgbProcessor : IColorModeProcessor
 {
     public string? IccProfileUsed { get; private set; }
 
-    private static readonly RgbCalibrationProvider CalibrationProvider = new();
+    // Fallback when the context carries no document-scoped cache; instance-scoped so all
+    // surfaces of one decode operation (e.g. tiles) still share a single LUT.
+    private readonly RgbCalibrationProvider _localCalibration = new();
 
     public RgbaSurface Process(PlaneImage src, ColorModeContext ctx, ColorModeData? colorModeData, CancellationToken ct)
     {
@@ -37,7 +39,7 @@ public sealed class RgbProcessor : IColorModeProcessor
         var size = checked(stride * src.Height);
 
         const int gridSize = RgbCalibrationDefaults.GridSize;
-        var calibration = CalibrationProvider.GetCalibration(
+        var calibration = (ctx.Calibration ?? _localCalibration).GetCalibration(
             new RgbCalibrationRequest(
                 SourceColorMode: ColorMode.Rgb,
                 EmbeddedIccProfile: ctx.IccProfile,

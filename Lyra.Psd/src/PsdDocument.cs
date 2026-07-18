@@ -1,3 +1,4 @@
+using Lyra.Psd.Core.Decode.ColorCalibration.Rgb;
 using Lyra.Psd.Core.Decode.Composite;
 using Lyra.Psd.Core.Decode.Layers;
 using Lyra.Psd.Core.Readers;
@@ -17,6 +18,8 @@ public sealed class PsdDocument
     public PsdSectionLayout SectionLayout { get; }
 
     public PsdMetadata PsdMetadata { get; }
+    
+    internal RgbCalibrationProvider Calibration { get; } = new();
 
     private PsdDocument(
         FileHeader fileHeader,
@@ -36,6 +39,11 @@ public sealed class PsdDocument
         PsdMetadata = psdMetadata;
     }
 
+    /// <summary>
+    /// Read only the fixed-size file header (signature/version, dimensions, channel count,
+    /// bit-depth, color mode). Cheap: no other section is touched, so this is suitable for
+    /// sniffing a file before deciding how (or whether) to decode it.
+    /// </summary>
     public static FileHeader ReadHeader(Stream stream)
     {
         ArgumentNullException.ThrowIfNull(stream);
@@ -47,6 +55,13 @@ public sealed class PsdDocument
         return FileHeaderSectionReader.Read(reader);
     }
 
+    /// <summary>
+    /// Parse the document structure: all five sections (file header, color mode data, image
+    /// resources, layer and mask information, image data descriptor) plus the byte layout of
+    /// each section (<see cref="SectionLayout"/>). Decodes no pixel data - follow up with
+    /// <see cref="Decode"/> / <see cref="DecodePreview"/> / <see cref="DecodeTiles"/> or
+    /// <see cref="DecodeLayerRecords"/>, reusing (or reopening) the stream.
+    /// </summary>
     public static PsdDocument ReadDocument(Stream stream)
     {
         ArgumentNullException.ThrowIfNull(stream);
@@ -82,6 +97,12 @@ public sealed class PsdDocument
         return new PsdDocument(header, colorMode, resources, layerAndMaskInformation, imageData, layout, new PsdMetadata());
     }
 
+    /// <summary>
+    /// Decode the layer records from the LayerInfo payload: per-layer name (Unicode 'luni'
+    /// with Pascal-string fallback), section-divider type ('lsct'), visibility, opacity and
+    /// blend mode. Metadata only - layer pixel data is not decoded. Returns an empty array
+    /// for flattened documents (no layers). Requires a seekable stream.
+    /// </summary>
     public LayerRecord[] DecodeLayerRecords(Stream stream)
     {
         ArgumentNullException.ThrowIfNull(stream);

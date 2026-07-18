@@ -20,6 +20,10 @@ public sealed class LabProcessor : IColorModeProcessor
 {
     public string? IccProfileUsed { get; private set; }
 
+    // Instance-scoped (one processor per decode operation) so the conversion cache stays warm
+    // across all tiles of a tiled decode instead of being rebuilt (512 KB) per tile.
+    private readonly LabToRgbConverter _converter = new();
+
     public RgbaSurface Process(PlaneImage src, ColorModeContext ctx, ColorModeData? colorModeData, CancellationToken ct)
     {
         var depth = PsdDepthUtil.FromBitsPerChannel(src.BitsPerChannel);
@@ -49,8 +53,6 @@ public sealed class LabProcessor : IColorModeProcessor
 
         var stride = checked(src.Width * 4);
         var size = checked(stride * src.Height);
-
-        var converter = new LabToRgbConverter();
 
         var owner = MemoryPool<byte>.Shared.Rent(size);
         var surface = new RgbaSurface(src.Width, src.Height, owner, stride, ctx.OutputFormat);
@@ -115,7 +117,7 @@ public sealed class LabProcessor : IColorModeProcessor
                 var bb = bOut.AsSpan(0, src.Width);
 
                 for (var x = 0; x < src.Width; x++)
-                    converter.Convert(l8[x], a8[x], b8[x], out rr[x], out gg[x], out bb[x]);
+                    _converter.Convert(l8[x], a8[x], b8[x], out rr[x], out gg[x], out bb[x]);
 
                 PixelRowWriter.WriteRgbRow(
                     surface.GetRowSpan(y),

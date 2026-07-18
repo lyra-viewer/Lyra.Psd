@@ -1,4 +1,5 @@
 using Lyra.Psd.Core.Common;
+using Lyra.Psd.Core.Decode.ColorCalibration.Rgb;
 using Lyra.Psd.Core.Decode.Composite;
 
 namespace Lyra.Psd.Core.Decode.Color;
@@ -6,8 +7,9 @@ namespace Lyra.Psd.Core.Decode.Color;
 public sealed record ColorModeContext(
     ColorMode ColorMode,
     SurfaceFormat OutputFormat,
-    byte[]? IndexedPaletteRgb,     // 768 bytes if Indexed
-    byte[]? IccProfile,            // from image resources if available
-    bool PreferColorManagement     // runtime switch
+    byte[]? IndexedPaletteRgb,                  // 768 bytes if Indexed
+    byte[]? IccProfile,                         // from image resources if available
+    bool PreferColorManagement,                 // runtime switch
+    RgbCalibrationProvider? Calibration = null  // document-scoped calibration cache
     // other stuff: transparency index, etc.
 );
