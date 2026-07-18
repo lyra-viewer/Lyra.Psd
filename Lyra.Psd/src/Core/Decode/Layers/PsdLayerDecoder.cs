@@ -31,9 +31,17 @@ public static class PsdLayerDecoder
             Position = layerInfo.PayloadOffset
         };
 
+        var payloadEnd = checked(layerInfo.PayloadOffset + layerInfo.PayloadLength);
+
         var count = Math.Abs(reader.ReadInt16());
         if (count == 0)
             return [];
+
+        // Smallest possible layer record: bounds(16) + channel count(2) + blend block(12) +
+        // extra-data length(4) = 34 bytes. A count the payload cannot hold means corruption.
+        const int minRecordBytes = 34;
+        if ((long)count * minRecordBytes > layerInfo.PayloadLength)
+            throw new InvalidDataException($"Layer count {count} exceeds what the {layerInfo.PayloadLength}-byte LayerInfo payload can hold.");
 
         var channelEntrySize = 2 + (isPsb ? 8 : 4);
         var records = new LayerRecord[count];
@@ -61,6 +69,9 @@ public static class PsdLayerDecoder
 
             var extraDataLength = reader.ReadUInt32();
             var extraDataEnd = reader.Position + extraDataLength;
+
+            if (extraDataEnd > payloadEnd)
+                throw new InvalidDataException($"Layer {i}: extra data ({extraDataLength} bytes) overruns the LayerInfo payload.");
 
             SkipLayerMaskData(reader);
             SkipLayerBlendingRanges(reader);

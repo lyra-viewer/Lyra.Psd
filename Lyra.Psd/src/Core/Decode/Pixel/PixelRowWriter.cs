@@ -6,45 +6,14 @@ using Lyra.Psd.Core.Decode.Composite;
 
 namespace Lyra.Psd.Core.Decode.Pixel;
 
-// ============================================================================
-//  PERFORMANCE CRITICAL – PIXEL ROW WRITER
-// ----------------------------------------------------------------------------
-//  Converts decoded plane data into final RGBA/BGRA surface rows.
-//  This is one of the hottest loops in the entire PSD decode pipeline.
-//
-//  Hot Path Characteristics:
-//    - Executes once per output pixel.
-//    - Responsible for:
-//      - Channel packing
-//      - Alpha handling
-//      - Premultiplication
-//      - ICC calibration LUT application
-//      - CMYK approximation / tuning
-//    - Must remain allocation-free.
-//    - Must minimize branching inside inner loops.
-//    - Must not mix heuristic tuning and ICC LUT paths incorrectly.
-//
-//  Critical Invariants:
-//    - Calibration LUTs are keyed by baseline approximation output.
-//    - LUT application MUST occur on baseline RGB values.
-//    - Heuristic tuning and ICC calibration are mutually exclusive paths.
-//    - Indexed palette layout must match PSD Color Mode Data interpretation.
-//
-//  PERFORMANCE CONTRACT:
-//    Changes here directly impact large PSB decode time.
-//    Any modification must be benchmarked against large (≥3GB) PSB files.
-//    Avoid:
-//      - Division in inner loops
-//      - Extra bounds checks
-//      - Additional Span slicing
-//      - Refactors that reintroduce nested branching
-//
-//  Verified against:
-//    - Reference color correctness tests
-//    - CMYK polarity validation
-//    - ICC calibration LUT validation
-//    - 3GB PSB benchmark
-// ============================================================================
+/// <summary>
+/// Converts decoded plane data into final RGBA/BGRA surface rows: channel packing, alpha
+/// handling, premultiplication, ICC calibration LUT application and CMYK approximation.
+/// Runs once per output pixel - one of the hottest loops in the decode pipeline - so the
+/// per-variant loops are deliberately duplicated to keep the inner loops branch-light and
+/// allocation-free. Invariants: calibration LUTs apply to baseline RGB values, and heuristic
+/// tuning vs. ICC calibration are mutually exclusive paths.
+/// </summary>
 public static class PixelRowWriter
 {
     public readonly record struct CmykHeuristicTuning(
@@ -663,14 +632,6 @@ public static class PixelRowWriter
         b = ClampToByte(bi + bAdd);
     }
 
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static void CmykPaperToRgbBaseline(byte c0, byte m0, byte y0, byte k0, out byte r, out byte g, out byte b)
-    {
-        r = PaperMul(c0, k0);
-        g = PaperMul(m0, k0);
-        b = PaperMul(y0, k0);
-    }
-
     // ========================================================================
     //  TETRAHEDRAL 4D INTERPOLATION — CMYK GRID LUT
     // ------------------------------------------------------------------------
@@ -713,9 +674,13 @@ public static class PixelRowWriter
         int[] tOffK0 = tables.OffK0, tOffK1 = tables.OffK1;
         int[] tFrac = tables.Frac;
 
-        // Per-row LRU hash cache (0 allocations, ~2KB stack)
+        // Per-row LRU hash cache (0 allocations, ~2KB stack). Layout: bits 0..31 CMYK key,
+        // bits 32..55 RGB, bit 63 occupied. The occupied bit is required because every 32-bit
+        // value is a valid key — an in-band empty sentinel would alias some real pixel
+        // (0xFFFFFFFF is CMYK "no ink", i.e. paper white).
+        const ulong occupied = 1ul << 63;
         ulong* pCache = stackalloc ulong[256];
-        new Span<ulong>(pCache, 256).Fill(0xFFFFFFFFFFFFFFFFul);
+        new Span<ulong>(pCache, 256).Clear();
 
         fixed (byte* pSamples = lut.SamplesRgb)
         fixed (byte* pDst = dstRow)
@@ -736,7 +701,7 @@ public static class PixelRowWriter
 
                 byte outR, outG, outB;
 
-                if ((uint)cacheLine == cmyk)
+                if ((cacheLine & occupied) != 0 && (uint)cacheLine == cmyk)
                 {
                     uint rgb = (uint)(cacheLine >> 32);
                     outR = (byte)rgb;
@@ -822,7 +787,7 @@ public static class PixelRowWriter
 
                     // Update cache
                     uint rgb = (uint)outR | ((uint)outG << 8) | ((uint)outB << 16);
-                    pCache[hash] = cmyk | ((ulong)rgb << 32);
+                    pCache[hash] = occupied | cmyk | ((ulong)rgb << 32);
                 }
 
                 // Final write block
@@ -986,148 +951,6 @@ public static class PixelRowWriter
                 dstRow[dstIdx + 3] = a;
             }
         }
-    }
-
-    #endregion
-
-    #region Indexed
-
-    public static void WriteIndexedRow(
-        Span<byte> dstRow,
-        PixelFormat dstPixelFormat,
-        AlphaType alphaType,
-        ReadOnlySpan<byte> indexRow,
-        ReadOnlySpan<byte> aRow,
-        ReadOnlySpan<byte> palette,
-        bool hasAlpha
-        )
-    {
-        Debug.Assert(palette.Length >= 768, "Palette must have at least 768 bytes (256 * 3).");
-        Debug.Assert(!hasAlpha || aRow.Length >= indexRow.Length, "Alpha row must be at least as long as index row when hasAlpha=true.");
-        Debug.Assert(dstRow.Length >= indexRow.Length * 4, "Destination row span too small.");
-
-        var isBgra = dstPixelFormat == PixelFormat.Bgra8888;
-        var isRgba = dstPixelFormat == PixelFormat.Rgba8888;
-        if (!isBgra && !isRgba)
-            throw new NotSupportedException($"Unsupported PixelFormat: {dstPixelFormat}");
-
-        var width = indexRow.Length;
-        var isPremul = hasAlpha && alphaType == AlphaType.Premultiplied;
-
-        const bool assumePlanar = true;
-
-        for (int i = 0, dstIdx = 0; i < width; i++, dstIdx += 4)
-        {
-            var idx = indexRow[i];
-
-            byte r, g, b;
-            if (assumePlanar)
-            {
-                ReadPaletteRgbPlanar(palette, idx, out r, out g, out b);
-            }
-            else
-            {
-                ReadPaletteRgbInterleaved(palette, idx, out r, out g, out b);
-            }
-
-            byte a = hasAlpha ? aRow[i] : (byte)255;
-
-            if (isPremul && a < 255)
-            {
-                r = PremultiplyFast(r, a);
-                g = PremultiplyFast(g, a);
-                b = PremultiplyFast(b, a);
-            }
-
-            if (isBgra)
-            {
-                dstRow[dstIdx + 0] = b;
-                dstRow[dstIdx + 1] = g;
-                dstRow[dstIdx + 2] = r;
-                dstRow[dstIdx + 3] = a;
-            }
-            else
-            {
-                dstRow[dstIdx + 0] = r;
-                dstRow[dstIdx + 1] = g;
-                dstRow[dstIdx + 2] = b;
-                dstRow[dstIdx + 3] = a;
-            }
-        }
-    }
-
-    public static void WriteIndexedRowInterleaved(
-        Span<byte> dstRow,
-        PixelFormat dstPixelFormat,
-        AlphaType alphaType,
-        ReadOnlySpan<byte> indexRow,
-        ReadOnlySpan<byte> aRow,
-        ReadOnlySpan<byte> paletteRgbInterleaved,
-        bool hasAlpha
-    )
-    {
-        Debug.Assert(paletteRgbInterleaved.Length >= 768, "Palette must have at least 768 bytes (256 * 3).");
-        Debug.Assert(!hasAlpha || aRow.Length >= indexRow.Length);
-        Debug.Assert(dstRow.Length >= indexRow.Length * 4);
-
-        var isBgra = dstPixelFormat == PixelFormat.Bgra8888;
-        var isRgba = dstPixelFormat == PixelFormat.Rgba8888;
-        if (!isBgra && !isRgba)
-            throw new NotSupportedException($"Unsupported PixelFormat: {dstPixelFormat}");
-
-        var width = indexRow.Length;
-        var isPremul = hasAlpha && alphaType == AlphaType.Premultiplied;
-
-        for (int i = 0, dstIdx = 0; i < width; i++, dstIdx += 4)
-        {
-            var idx = indexRow[i];
-
-            ReadPaletteRgbInterleaved(paletteRgbInterleaved, idx, out var r, out var g, out var b);
-
-            byte a = hasAlpha ? aRow[i] : (byte)255;
-
-            if (isPremul && a < 255)
-            {
-                r = PremultiplyFast(r, a);
-                g = PremultiplyFast(g, a);
-                b = PremultiplyFast(b, a);
-            }
-
-            if (isBgra)
-            {
-                dstRow[dstIdx + 0] = b;
-                dstRow[dstIdx + 1] = g;
-                dstRow[dstIdx + 2] = r;
-                dstRow[dstIdx + 3] = a;
-            }
-            else
-            {
-                dstRow[dstIdx + 0] = r;
-                dstRow[dstIdx + 1] = g;
-                dstRow[dstIdx + 2] = b;
-                dstRow[dstIdx + 3] = a;
-            }
-        }
-    }
-
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static void ReadPaletteRgbPlanar(ReadOnlySpan<byte> palette, byte idx, out byte r, out byte g, out byte b)
-    {
-        // Planar: [R(256)][G(256)][B(256)]
-        var i = idx;
-        r = palette[i];
-        g = palette[i + 256];
-        b = palette[i + 512];
-    }
-
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static void ReadPaletteRgbInterleaved(ReadOnlySpan<byte> palette, byte idx, out byte r, out byte g, out byte b)
-    {
-        // Interleaved: [R0 G0 B0][R1 G1 B1]...
-        var baseIdx = idx * 3;
-        r = palette[baseIdx + 0];
-        g = palette[baseIdx + 1];
-        b = palette[baseIdx + 2];
     }
 
     #endregion
