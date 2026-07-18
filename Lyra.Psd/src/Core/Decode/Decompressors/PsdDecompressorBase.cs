@@ -295,8 +295,10 @@ public abstract class PsdDecompressorBase : IPsdDecompressor
 
     /// <summary>
     /// For uncompressed (RAW) payloads, the declared pixel data has a known exact size.
-    /// Reject early when a crafted header claims more pixels than the stream can possibly hold,
-    /// before any large buffer is allocated.
+    /// Reject early when the header claims more pixels than the stream can possibly hold,
+    /// before any large buffer is allocated. This fires for corrupt headers, but also for
+    /// legitimate layer-only PSDs (tool-written files, or "Maximize Compatibility" off) whose
+    /// composite section is absent or truncated.
     /// </summary>
     protected static void ValidateRawPayloadFitsStream(PsdBigEndianReader reader, FileHeader header, PsdDepth depth)
     {
@@ -310,7 +312,8 @@ public abstract class PsdDecompressorBase : IPsdDecompressor
         if (required > remaining)
             throw new InvalidDataException(
                 $"Declared RAW image data ({required:N0} bytes) exceeds the {remaining:N0} bytes remaining in the stream; " +
-                "the header dimensions are likely corrupt.");
+                "either the header is corrupt, or the composite image data is truncated because the file was saved " +
+                "without a full flattened composite (layer-only PSD).");
     }
 
     #endregion

@@ -10,6 +10,19 @@ internal static class CompositePlaneRoles
         if (channelCount <= 0)
             throw new InvalidOperationException($"Invalid channelCount: {channelCount}");
 
+        var roles = Resolve(mode, channelCount);
+
+        // A role list longer than the file's channel list means the header is lying about the
+        // color mode or channel count; without this check the mismatch only surfaces deep in
+        // the decompressor as a confusing row-table/EOF error.
+        if (roles.Length > channelCount)
+            throw new InvalidDataException($"PSD declares ColorMode {mode} but only {channelCount} channel(s); at least {roles.Length} are required.");
+
+        return roles;
+    }
+
+    private static PlaneRole[] Resolve(ColorMode mode, int channelCount)
+    {
         return mode switch
         {
             ColorMode.Rgb => channelCount switch

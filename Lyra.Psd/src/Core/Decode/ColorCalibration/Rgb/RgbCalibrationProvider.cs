@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using Lyra.Psd.Core.Common;
 using Wacton.Unicolour;
 using Wacton.Unicolour.Icc;
 
@@ -6,7 +7,10 @@ namespace Lyra.Psd.Core.Decode.ColorCalibration.Rgb;
 
 public sealed class RgbCalibrationProvider
 {
-    private readonly ConcurrentDictionary<(string key, int grid), RgbLuts> _cache = new();
+    // Lazy so concurrent callers (e.g. preview + tiles) build a given LUT exactly once.
+    // SourceColorMode is part of the key: RGB and Grayscale builders produce different curves
+    // for the same profile, and one provider may serve either depending on the document.
+    private readonly ConcurrentDictionary<(ColorMode mode, string key, int grid), Lazy<RgbLuts>> _cache = new();
 
     public RgbLuts GetCalibration(RgbCalibrationRequest req, Func<Configuration, RgbLuts> buildLuts, out string? iccProfileUsed)
     {
@@ -18,16 +22,29 @@ public sealed class RgbCalibrationProvider
         if (!req.PreferColorManagement)
             return RgbLuts.Identity;
 
-        Configuration config;
-
         if (req.EmbeddedIccProfile is { Length: > 0 })
         {
             var profileKey = Hash(req.EmbeddedIccProfile);
-            config = new Configuration(iccConfig: new IccConfiguration(req.EmbeddedIccProfile, Intent.RelativeColorimetric));
+            var icc = req.EmbeddedIccProfile;
 
             iccProfileUsed = "Embedded ICC Profile";
 
-            return _cache.GetOrAdd((profileKey, req.GridSize), _ => buildLuts(config));
+            var lazy = _cache.GetOrAdd(
+                (req.SourceColorMode, profileKey, req.GridSize),
+                _ => new Lazy<RgbLuts>(
+                    () => buildLuts(new Configuration(iccConfig: new IccConfiguration(icc, Intent.RelativeColorimetric))),
+                    LazyThreadSafetyMode.ExecutionAndPublication));
+
+            try
+            {
+                return lazy.Value;
+            }
+            catch
+            {
+                // If the factory threw, remove the faulted Lazy so the next call retries.
+                _cache.TryRemove((req.SourceColorMode, profileKey, req.GridSize), out _);
+                throw;
+            }
         }
 
         return RgbLuts.Identity;

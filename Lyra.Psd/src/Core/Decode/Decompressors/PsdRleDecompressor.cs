@@ -237,7 +237,8 @@ internal sealed class PsdRleDecompressor : PsdDecompressorBase
             if (tableBytes > remaining)
                 throw new InvalidDataException(
                     $"RLE row-length table ({tableBytes:N0} bytes) exceeds the {remaining:N0} bytes remaining in the stream; " +
-                    "the header dimensions are likely corrupt.");
+                    "either the header is corrupt, or the composite image data is truncated because the file was saved " +
+                    "without a full flattened composite (layer-only PSD).");
         }
 
         var rowByteCounts = new int[rowCount];

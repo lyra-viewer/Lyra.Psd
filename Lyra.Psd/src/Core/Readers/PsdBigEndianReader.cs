@@ -4,43 +4,12 @@ using Lyra.Psd.Core.Common;
 
 namespace Lyra.Psd.Core.Readers;
 
-// ============================================================================
-//  PERFORMANCE CRITICAL – PSD BIG-ENDIAN BINARY READER
-// ----------------------------------------------------------------------------
-//  Provides low-level big-endian reading primitives for PSD/PSB parsing.
-//  This reader is used throughout section parsing and plane decoding.
-//
-//  Hot Path Characteristics:
-//    - Called repeatedly during layer, resource, and image data parsing.
-//    - Must not allocate (except ReadBytes which returns owned arrays).
-//    - Must avoid unnecessary buffer copies.
-//    - Must avoid redundant bounds checks.
-//    - Must keep position tracking lightweight.
-//
-//  Design Goals:
-//    - Sequential forward reading optimized.
-//    - Safe, predictable behavior for malformed files.
-//    - Zero hidden allocations.
-//    - Explicit error reporting on corruption.
-//
-//  Thread Safety:
-//    NOT thread-safe. The shared _scratch8 buffer and sequential stream
-//    position assume single-threaded access.
-//
-//  PERFORMANCE CONTRACT:
-//    This class underpins the entire PSD parser.
-//    Changes must preserve:
-//      - Correct big-endian semantics
-//      - Strict bounds validation
-//      - Zero-allocation behavior (outside ReadBytes)
-//    Any structural changes must be benchmarked and validated
-//    against large PSB files and malformed input samples.
-//
-//  Verified against:
-//    - Reference PSD/PSB corpus
-//    - Corrupt/truncated file handling tests
-//    - Large file decode benchmarks
-// ============================================================================
+/// <summary>
+/// Low-level big-endian reading primitives for PSD/PSB parsing; used by all section parsing
+/// and plane decoding, so it sits on the hot path. Allocation-free except <see cref="ReadBytes"/>
+/// (which returns an owned array). NOT thread-safe: the shared scratch buffer and sequential
+/// stream position assume single-threaded access.
+/// </summary>
 public sealed class PsdBigEndianReader(Stream stream)
 {
     public Stream BaseStream { get; } = stream ?? throw new ArgumentNullException(nameof(stream));
@@ -192,7 +161,9 @@ public sealed class PsdBigEndianReader(Stream stream)
         var padded = ((total + (padTo - 1)) / padTo) * padTo;
         Skip(padded - total);
 
-        return Encoding.ASCII.GetString(data);
+        // Legacy PSD names are a system encoding (typically MacRoman). Latin1 maps every byte
+        // 1:1, preserving the raw values instead of collapsing high bytes to '?' like ASCII.
+        return Encoding.Latin1.GetString(data);
     }
 
     public string ReadUnicodeString()

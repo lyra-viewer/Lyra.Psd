@@ -107,9 +107,6 @@ public sealed class PsdDocument
     {
         ArgumentNullException.ThrowIfNull(stream);
 
-        if (stream.CanSeek)
-            stream.Position = ImageData.PayloadOffset;
-
         return PsdLayerDecoder.DecodeLayerRecords(this, stream);
     }
 

@@ -3,35 +3,12 @@ using System.Runtime.CompilerServices;
 
 namespace Lyra.Psd.Core.Decode.Color;
 
-// ============================================================================
-//  PERFORMANCE CRITICAL – PSD SAMPLE CONVERSION
-// ----------------------------------------------------------------------------
-//  This class performs per-sample bit depth conversion during PSD/PSB decode.
-//  It is executed for every pixel in large images (including multi-gigabyte PSB files).
-//
-//  Hot Path Characteristics:
-//    - Called millions to billions of times for large images.
-//    - Must not allocate.
-//    - Must avoid division where possible.
-//    - Must avoid unnecessary Span slicing.
-//    - Must avoid extra bounds checks in inner loops.
-//    - Must remain branch-predictable.
-//
-//  Implementation Notes:
-//    - U16 -> U8 conversion uses a division-free exact transform.
-//    - Float conversion assumes normalized [0..1] PSD float encoding.
-//    - All methods assume caller guarantees valid buffer sizes.
-//    - No defensive re-checking inside inner loops.
-//
-//  PERFORMANCE CONTRACT:
-//    Any modification here must be benchmarked against large (≥3GB) PSB files.
-//    Refactors for readability must not introduce hidden allocations,
-//    division, LINQ, or additional branching.
-//
-//  Verified against:
-//    - Reference PSD/PSB corpus
-//    - 3GB production PSB benchmark
-// ============================================================================
+/// <summary>
+/// Per-sample bit-depth conversion (16-bit big-endian and 32-bit float to 8-bit), executed for
+/// every pixel of large PSB files - keep allocation- and division-free. U16->U8 uses a
+/// division-free exact transform; float conversion assumes normalized [0..1] PSD encoding
+/// (linear-light; no transfer function is applied). Callers guarantee buffer sizes.
+/// </summary>
 internal static class PsdSampleConvert
 {
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
